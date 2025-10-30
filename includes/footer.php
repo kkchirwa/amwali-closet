@@ -4,7 +4,7 @@
         <div class="footer-content">
             <div class="footer-section">
                 <h3>Amwali Closet</h3>
-                <p>Premium clothing rental service offering designer outfits for every occasion. Rent stylish, high-quality clothing without the commitment of buying.</p>
+                <p>Premium clothing rental service offering designer outfits for every occasion.</p>
                 <div class="social-links">
                     <a href="#" aria-label="Facebook">📘</a>
                     <a href="#" aria-label="Instagram">📷</a>
@@ -16,9 +16,9 @@
                 <h3>Quick Links</h3>
                 <ul class="footer-links">
                     <li><a href="/amwali-closet/">Home</a></li>
-                    <li><a href="/amwali-closet/customer/products.php">Browse Collection</a></li>
-                    <li><a href="/amwali-closet/login.php">Login</a></li>
-                    <li><a href="/amwali-closet/register.php">Register</a></li>
+                    <li><a href="customer/products.php">Browse Collection</a></li>
+                    <li><a href="#" onclick="showAuthModal(); return false;">Login</a></li>
+                    <li><a href="#" onclick="showAuthModal('register'); return false;">Register</a></li>
                 </ul>
             </div>
             
@@ -48,6 +48,7 @@
         </div>
     </footer>
     
-    <script src="assets/js/script.js"></script>
+    <script src="/assets/js/auth.js"></script>
+    <script src="/assets/js/script.js"></script>
 </body>
 </html>

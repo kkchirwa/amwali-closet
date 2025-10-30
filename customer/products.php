@@ -177,6 +177,107 @@ $categories = $category_stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 </div>
 
+<!-- Authentication Modal -->
+<div id="authModal" class="modal">
+    <div class="modal-content auth-modal">
+        <span class="close-modal" onclick="closeAuthModal()">&times;</span>
+        
+        <div class="auth-tabs">
+            <button id="loginTab" class="auth-tab active" onclick="switchToLogin()">Sign In</button>
+            <button id="registerTab" class="auth-tab" onclick="switchToRegister()">Register</button>
+        </div>
+        
+        <div class="auth-content">
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form" onsubmit="handleLogin(event)">
+                <h3>Welcome Back</h3>
+                <p>Sign in to your account to continue renting</p>
+                
+                <div class="form-group">
+                    <label for="loginEmail">Email Address</label>
+                    <input type="email" id="loginEmail" name="email" required placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required placeholder="Enter your password">
+                </div>
+                
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox" name="remember"> Remember me
+                    </label>
+                    <a href="#" class="forgot-password">Forgot password?</a>
+                </div>
+                
+                <button type="submit" class="auth-submit-btn">Sign In</button>
+                
+                <div class="auth-divider">
+                    <span>or continue with</span>
+                </div>
+                
+                <div class="social-auth">
+                    <button type="button" class="social-btn google-btn">
+                        <span>Google</span>
+                    </button>
+                    <button type="button" class="social-btn facebook-btn">
+                        <span>Facebook</span>
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form" style="display: none;" onsubmit="handleRegister(event)">
+                <h3>Create Account</h3>
+                <p>Join Amwali Closet to start renting premium clothing</p>
+                
+                <div class="form-group">
+                    <label for="registerName">Full Name</label>
+                    <input type="text" id="registerName" name="name" required placeholder="Enter your full name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerEmail">Email Address</label>
+                    <input type="email" id="registerEmail" name="email" required placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" name="password" required placeholder="Create a password">
+                    <small>Must be at least 8 characters</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerConfirmPassword">Confirm Password</label>
+                    <input type="password" id="registerConfirmPassword" name="confirm_password" required placeholder="Confirm your password">
+                </div>
+                
+                <div class="form-group">
+                    <label class="terms-agreement">
+                        <input type="checkbox" name="terms" required>
+                        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                    </label>
+                </div>
+                
+                <button type="submit" class="auth-submit-btn">Create Account</button>
+                
+                <div class="auth-divider">
+                    <span>or sign up with</span>
+                </div>
+                
+                <div class="social-auth">
+                    <button type="button" class="social-btn google-btn">
+                        <span>Google</span>
+                    </button>
+                    <button type="button" class="social-btn facebook-btn">
+                        <span>Facebook</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <?php include '../includes/footer.php'; ?>
 
 <script>
@@ -237,19 +338,23 @@ function sortProducts() {
     productCards.forEach(card => productsGrid.appendChild(card));
 }
 
-// Modal functionality
+// Rental functionality - UPDATED (uses global auth modal)
 function openRentalModal(productId) {
-    // For now, just show a simple modal
-    // In a real application, you'd fetch product details via AJAX
-    document.getElementById('modalProductDetails').innerHTML = `
-        <p>Product ID: ${productId}</p>
-        <p>Rental functionality will be implemented in the next step.</p>
-        <div class="modal-actions">
-            <button onclick="closeRentalModal()" class="btn-secondary">Cancel</button>
-            <button onclick="addToCart(${productId})" class="btn-primary">Add to Cart</button>
-        </div>
-    `;
-    document.getElementById('rentalModal').style.display = 'block';
+    <?php if (!isLoggedIn()): ?>
+        showAuthModal();
+        return;
+    <?php else: ?>
+        // If user is logged in, proceed with rental
+        document.getElementById('modalProductDetails').innerHTML = `
+            <p>Product ID: ${productId}</p>
+            <p>Rental functionality will be implemented in the next step.</p>
+            <div class="modal-actions">
+                <button onclick="closeRentalModal()" class="btn-secondary">Cancel</button>
+                <button onclick="addToCart(${productId})" class="btn-primary">Add to Cart</button>
+            </div>
+        `;
+        document.getElementById('rentalModal').style.display = 'block';
+    <?php endif; ?>
 }
 
 function closeRentalModal() {
@@ -257,7 +362,6 @@ function closeRentalModal() {
 }
 
 function quickView(productId) {
-    // Quick view functionality
     document.getElementById('quickViewDetails').innerHTML = `
         <h3>Quick View</h3>
         <p>Quick view for product ${productId} will be implemented later.</p>
@@ -272,7 +376,6 @@ function closeQuickViewModal() {
 function addToCart(productId) {
     alert(`Product ${productId} added to cart!`);
     closeRentalModal();
-    // Cart functionality will be implemented in next step
 }
 
 // Close modals when clicking outside
@@ -287,10 +390,68 @@ window.onclick = function(event) {
         closeQuickViewModal();
     }
 }
+function addToCart(productId) {
+    // Get product details (in real app, this would be from database)
+    const productCard = document.querySelector(`.product-card[data-product-id="${productId}"]`);
+    const productName = productCard.querySelector('.product-name').textContent;
+    const productPrice = parseFloat(productCard.getAttribute('data-price'));
+    const productImage = productCard.querySelector('img').src;
+    const productSize = productCard.querySelector('.product-size').textContent.replace('Size: ', '');
+    const productCategory = productCard.querySelector('.product-category').textContent;
+    
+    const cartItem = {
+        id: productId,
+        name: productName,
+        price: productPrice,
+        image: productImage,
+        size: productSize,
+        category: productCategory,
+        rentalDays: 3 // Default rental period
+    };
+    
+    // Get existing cart or initialize empty array
+    let cart = JSON.parse(localStorage.getItem('amwali_cart') || '[]');
+    
+    // Check if item already in cart
+    const existingItemIndex = cart.findIndex(item => item.id == productId);
+    if (existingItemIndex > -1) {
+        cart[existingItemIndex].rentalDays += 3; // Add more days if already in cart
+    } else {
+        cart.push(cartItem);
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('amwali_cart', JSON.stringify(cart));
+    
+    // Show success message
+    alert(`${productName} added to cart!`);
+    closeRentalModal();
+    
+    // Update cart count in header
+    updateCartCount();
+}
+
+function updateCartCount() {
+    const cart = JSON.parse(localStorage.getItem('amwali_cart') || '[]');
+    const cartCount = cart.reduce((total, item) => total + 1, 0);
+    
+    // Update cart count in navigation
+    const cartLinks = document.querySelectorAll('.nav-links a[href*="cart"]');
+    cartLinks.forEach(link => {
+        let existingCount = link.querySelector('.cart-count');
+        if (existingCount) {
+            existingCount.textContent = cartCount;
+        } else if (cartCount > 0) {
+            link.innerHTML += `<span class="cart-count">${cartCount}</span>`;
+        }
+    });
+}
+
+// Call this on page load
+document.addEventListener('DOMContentLoaded', updateCartCount);
 
 // Initialize filters
 document.addEventListener('DOMContentLoaded', function() {
-    // Add event listener for search input
     document.getElementById('searchInput').addEventListener('input', filterProducts);
 });
 </script>

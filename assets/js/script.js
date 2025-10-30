@@ -87,3 +87,5 @@ document.addEventListener('DOMContentLoaded', function() {
     // Other initialization code can go here
     console.log('Amwali Closet - Premium Clothing Rental');
 });
+
+
