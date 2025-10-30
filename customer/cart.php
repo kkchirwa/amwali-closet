@@ -22,7 +22,7 @@ if (!isLoggedIn()) {
                 <div class="empty-cart">
                     <h3>Your cart is empty</h3>
                     <p>Start adding some stylish clothing to rent!</p>
-                    <a href="/amwali-closet/customer/products.php" class="cta-button">Browse Collection</a>
+                    <a href="/customer/products.php" class="cta-button">Browse Collection</a>
                 </div>
             </div>
 
@@ -80,7 +80,7 @@ function loadCart() {
             <div class="empty-cart">
                 <h3>Your cart is empty</h3>
                 <p>Start adding some stylish clothing to rent!</p>
-                <a href="/amwali-closet/customer/products.php" class="cta-button">Browse Collection</a>
+                <a href="/customer/products.php" class="cta-button">Browse Collection</a>
             </div>
         `;
         return;
@@ -96,7 +96,7 @@ function loadCart() {
         html += `
             <div class="cart-item" data-id="${item.id}">
                 <div class="item-image">
-                    <img src="${item.image}" alt="${item.name}" onerror="this.src='/amwali-closet/assets/images/placeholder.jpg'">
+                    <img src="${item.image}" alt="${item.name}" onerror="this.src='/assets/images/placeholder.jpg'">
                 </div>
                 <div class="item-details">
                     <h4>${item.name}</h4>
@@ -161,7 +161,7 @@ function removeFromCart(productId) {
 }
 
 function continueShopping() {
-    window.location.href = '/amwali-closet/customer/products.php';
+    window.location.href = '/customer/products.php';
 }
 
 function proceedToCheckout() {
@@ -220,7 +220,7 @@ function closeCheckoutModal() {
 }
 
 function confirmBooking() {
-    const cartItems = JSON.parse(localStorage.getItem('amwali-closet_cart') || '[]');
+    const cartItems = JSON.parse(localStorage.getItem('amwali_cart') || '[]');
     
     if (cartItems.length === 0) {
         alert('Your cart is empty!');
@@ -233,21 +233,38 @@ function confirmBooking() {
     confirmBtn.textContent = 'Processing...';
     confirmBtn.disabled = true;
 
-    // Simulate API call to backend
-    setTimeout(() => {
-        // In real implementation, this would send data to your backend
-        console.log('Booking confirmed:', cartItems);
-        
-        // Clear cart
-        localStorage.removeItem('amwali_cart');
-        
-        // Show success message
-        alert('Booking confirmed successfully! Your items have been reserved.');
-        
-        // Close modal and redirect
-        closeCheckoutModal();
-        window.location.href = '/amwali-closet/customer/bookings.php';
-    }, 2000);
+    // Send booking data to backend
+    fetch('/includes/bookings_handler.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(cartItems)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Clear cart
+            localStorage.removeItem('amwali_cart');
+            
+            // Show success message
+            alert(data.message);
+            
+            // Close modal and redirect to bookings page
+            closeCheckoutModal();
+            window.location.href = '/customer/bookings.php';
+        } else {
+            alert('Booking failed: ' + data.message);
+            confirmBtn.textContent = originalText;
+            confirmBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Booking error:', error);
+        alert('Booking failed. Please try again.');
+        confirmBtn.textContent = originalText;
+        confirmBtn.disabled = false;
+    });
 }
 
 // Update cart count in header

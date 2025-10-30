@@ -21,6 +21,7 @@
                         <a href="/admin/">Dashboard</a>
                         <a href="/admin/inventory.php">Inventory</a>
                         <a href="/admin/rentals.php">Rentals</a>
+                        <a href="/admin/reports.php">Reports</a>
                     <?php else: ?>
                         <a href="/customer/products.php">Browse</a>
                         <a href="/customer/cart.php">Cart</a>
