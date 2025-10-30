@@ -29,9 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $size = $_POST['size'];
             $stock_quantity = intval($_POST['stock_quantity']);
             $image_url = trim($_POST['image_url']);
+            $available = isset($_POST['available']) ? 1 : 0;
             
-            $query = "INSERT INTO products (name, description, price, category_id, size, stock_quantity, image_url) 
-                     VALUES (:name, :description, :price, :category_id, :size, :stock_quantity, :image_url)";
+            $query = "INSERT INTO products (name, description, price, category_id, size, stock_quantity, image_url, available) 
+                     VALUES (:name, :description, :price, :category_id, :size, :stock_quantity, :image_url, :available)";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':name', $name);
             $stmt->bindParam(':description', $description);
@@ -40,9 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindParam(':size', $size);
             $stmt->bindParam(':stock_quantity', $stock_quantity);
             $stmt->bindParam(':image_url', $image_url);
+            $stmt->bindParam(':available', $available);
             
             if ($stmt->execute()) {
                 $message = 'Product added successfully!';
+            } else {
+                $error = 'Failed to add product. Please try again.';
             }
             
         } elseif ($action === 'edit') {
@@ -73,6 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if ($stmt->execute()) {
                 $message = 'Product updated successfully!';
+            } else {
+                $error = 'Failed to update product. Please try again.';
             }
             
         } elseif ($action === 'delete') {
@@ -85,8 +91,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if ($stmt->execute()) {
                 $message = 'Product deleted successfully!';
+            } else {
+                $error = 'Failed to delete product. Please try again.';
             }
         }
+    } catch (PDOException $e) {
+        $error = "Database error: " . $e->getMessage();
+    }
+}
+
+// Get product data for editing
+$edit_product = null;
+if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
+    try {
+        $query = "SELECT * FROM products WHERE id = :id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':id', $_GET['edit']);
+        $stmt->execute();
+        $edit_product = $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         $error = "Database error: " . $e->getMessage();
     }
@@ -211,9 +233,28 @@ try {
             color: white;
         }
         
-        /* Modal Styles */
+        /* Scrollable Modal Styles */
         .modal-form {
             max-width: 600px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            padding: 1.5rem 1.5rem 0;
+            flex-shrink: 0;
+        }
+        
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 1.5rem;
+        }
+        
+        .modal-footer {
+            padding: 0 1.5rem 1.5rem;
+            flex-shrink: 0;
         }
         
         .form-group {
@@ -248,6 +289,45 @@ try {
             justify-content: flex-end;
             margin-top: 1.5rem;
         }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #374151;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        /* Custom scrollbar for modal */
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .modal-body::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        
+        .modal-body::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
     </style>
 </head>
 <body>
@@ -275,7 +355,7 @@ try {
                 
                 <div class="admin-actions">
                     <div></div>
-                    <button class="add-product-btn" onclick="openAddModal()">+ Add New Product</button>
+                    <button class="add-product-btn" onclick="openProductModal('add')">+ Add New Product</button>
                 </div>
                 
                 <div class="products-table">
@@ -301,7 +381,7 @@ try {
                                                 <?php if($product['image_url']): ?>
                                                     <img src="<?php echo htmlspecialchars($product['image_url']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
                                                 <?php else: ?>
-                                                    <div style="background: #e2e8f0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                                                    <div style="background: #e2e8f0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 0.8rem;">
                                                         No Image
                                                     </div>
                                                 <?php endif; ?>
@@ -320,8 +400,8 @@ try {
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <button class="edit-btn" onclick="openEditModal(<?php echo $product['id']; ?>)">Edit</button>
-                                            <button class="delete-btn" onclick="deleteProduct(<?php echo $product['id']; ?>)">Delete</button>
+                                            <button class="edit-btn" onclick="openProductModal('edit', <?php echo $product['id']; ?>)">Edit</button>
+                                            <button class="delete-btn" onclick="deleteProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name']); ?>')">Delete</button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -339,32 +419,34 @@ try {
         </div>
     </main>
     
-    <!-- Add/Edit Product Modal -->
+    <!-- Product Modal -->
     <div id="productModal" class="modal">
         <div class="modal-content modal-form">
-            <span class="close-modal" onclick="closeProductModal()">&times;</span>
-            <h2 id="modalTitle">Add New Product</h2>
-            <form id="productForm" method="POST">
+            <div class="modal-header">
+                <span class="close-modal" onclick="closeProductModal()">&times;</span>
+                <h2 id="modalTitle">Add New Product</h2>
+            </div>
+            <form id="productForm" method="POST" class="modal-body">
                 <input type="hidden" name="action" id="formAction" value="add">
                 <input type="hidden" name="id" id="productId">
                 
                 <div class="form-group">
-                    <label for="name">Product Name</label>
-                    <input type="text" id="name" name="name" required>
+                    <label for="name">Product Name *</label>
+                    <input type="text" id="name" name="name" required placeholder="Enter product name">
                 </div>
                 
                 <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" required></textarea>
+                    <label for="description">Description *</label>
+                    <textarea id="description" name="description" required placeholder="Enter product description"></textarea>
                 </div>
                 
                 <div class="form-group">
-                    <label for="price">Price per Day ($)</label>
-                    <input type="number" id="price" name="price" step="0.01" min="0" required>
+                    <label for="price">Price per Day ($) *</label>
+                    <input type="number" id="price" name="price" step="0.01" min="0" required placeholder="0.00">
                 </div>
                 
                 <div class="form-group">
-                    <label for="category_id">Category</label>
+                    <label for="category_id">Category *</label>
                     <select id="category_id" name="category_id" required>
                         <option value="">Select Category</option>
                         <?php foreach($categories as $category): ?>
@@ -374,7 +456,7 @@ try {
                 </div>
                 
                 <div class="form-group">
-                    <label for="size">Size</label>
+                    <label for="size">Size *</label>
                     <select id="size" name="size" required>
                         <option value="XS">XS</option>
                         <option value="S">S</option>
@@ -385,51 +467,77 @@ try {
                 </div>
                 
                 <div class="form-group">
-                    <label for="stock_quantity">Stock Quantity</label>
-                    <input type="number" id="stock_quantity" name="stock_quantity" min="0" required>
+                    <label for="stock_quantity">Stock Quantity *</label>
+                    <input type="number" id="stock_quantity" name="stock_quantity" min="0" required placeholder="0">
                 </div>
                 
                 <div class="form-group">
                     <label for="image_url">Image URL</label>
                     <input type="url" id="image_url" name="image_url" placeholder="https://example.com/image.jpg">
+                    <small style="color: #64748b; font-size: 0.875rem;">Optional: Provide a direct image URL</small>
                 </div>
                 
                 <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="available" name="available" value="1" checked> 
-                        Available for rent
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="available" name="available" value="1"> 
+                        <span>Available for rent</span>
                     </label>
                 </div>
-                
+            </form>
+            <div class="modal-footer">
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" onclick="closeProductModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Save Product</button>
+                    <button type="submit" form="productForm" class="btn-primary">Save Product</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
     
     <?php include '../includes/footer.php'; ?>
     
     <script>
-    function openAddModal() {
-        document.getElementById('modalTitle').textContent = 'Add New Product';
-        document.getElementById('formAction').value = 'add';
-        document.getElementById('productForm').reset();
-        document.getElementById('productId').value = '';
-        document.getElementById('available').checked = true;
-        document.getElementById('productModal').style.display = 'block';
+    // Product data for editing
+    const productsData = <?php echo json_encode($products); ?>;
+    
+    function openProductModal(action, productId = null) {
+        const modal = document.getElementById('productModal');
+        const form = document.getElementById('productForm');
+        const title = document.getElementById('modalTitle');
+        
+        if (action === 'add') {
+            title.textContent = 'Add New Product';
+            document.getElementById('formAction').value = 'add';
+            form.reset();
+            document.getElementById('productId').value = '';
+            document.getElementById('available').checked = true;
+        } else if (action === 'edit' && productId) {
+            title.textContent = 'Edit Product';
+            document.getElementById('formAction').value = 'edit';
+            
+            // Find the product data
+            const product = productsData.find(p => p.id == productId);
+            if (product) {
+                document.getElementById('productId').value = product.id;
+                document.getElementById('name').value = product.name;
+                document.getElementById('description').value = product.description;
+                document.getElementById('price').value = product.price;
+                document.getElementById('category_id').value = product.category_id;
+                document.getElementById('size').value = product.size;
+                document.getElementById('stock_quantity').value = product.stock_quantity;
+                document.getElementById('image_url').value = product.image_url || '';
+                document.getElementById('available').checked = product.available == 1;
+            }
+        }
+        
+        modal.style.display = 'block';
     }
     
-    function openEditModal(productId) {
-        // In a real implementation, you would fetch the product data via AJAX
-        // For now, we'll redirect to a edit page or show a message
-        alert('Edit functionality will fetch product data for ID: ' + productId);
-        // You can implement AJAX to populate the form with existing data
+    function closeProductModal() {
+        document.getElementById('productModal').style.display = 'none';
     }
     
-    function deleteProduct(productId) {
-        if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+    function deleteProduct(productId, productName) {
+        if (confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
             // Create a form and submit it
             const form = document.createElement('form');
             form.method = 'POST';
@@ -452,10 +560,6 @@ try {
         }
     }
     
-    function closeProductModal() {
-        document.getElementById('productModal').style.display = 'none';
-    }
-    
     // Close modal when clicking outside
     window.onclick = function(event) {
         const modal = document.getElementById('productModal');
@@ -463,6 +567,40 @@ try {
             closeProductModal();
         }
     }
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeProductModal();
+        }
+    });
+    
+    // Auto-open edit modal if edit parameter is in URL
+    <?php if ($edit_product): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            openProductModal('edit', <?php echo $edit_product['id']; ?>);
+        });
+    <?php endif; ?>
+    
+    // Form validation
+    document.getElementById('productForm').addEventListener('submit', function(event) {
+        const price = parseFloat(document.getElementById('price').value);
+        const stock = parseInt(document.getElementById('stock_quantity').value);
+        
+        if (price < 0) {
+            alert('Price cannot be negative.');
+            event.preventDefault();
+            return;
+        }
+        
+        if (stock < 0) {
+            alert('Stock quantity cannot be negative.');
+            event.preventDefault();
+            return;
+        }
+        
+        // If everything is valid, the form will submit
+    });
     </script>
 </body>
 </html>
