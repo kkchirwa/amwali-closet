@@ -12,7 +12,7 @@ include 'includes/header.php';
             <div class="slide-content">
                 <h1>Welcome to Amwali Closet</h1>
                 <p>Rent premium designer clothing for any occasion</p>
-                <a href="/amwali-closet/customer/products.php" class="cta-button">Browse Collection</a>
+                <a href="/customer/products.php" class="cta-button">Browse Collection</a>
             </div>
         </div>
         
@@ -22,7 +22,7 @@ include 'includes/header.php';
             <div class="slide-content">
                 <h1>Elevate Your Style</h1>
                 <p>Professional attire for important meetings and events</p>
-                <a href="/amwali-closet/customer/products.php" class="cta-button">Rent Now</a>
+                <a href="/customer/products.php" class="cta-button">Rent Now</a>
             </div>
         </div>
         
@@ -32,7 +32,7 @@ include 'includes/header.php';
             <div class="slide-content">
                 <h1>Special Occasion Ready</h1>
                 <p>Stunning evening wear for your memorable moments</p>
-                <a href="/amwali-closet/customer/products.php" class="cta-button">Discover More</a>
+                <a href="/customer/products.php" class="cta-button">Discover More</a>
             </div>
         </div>
     </div>

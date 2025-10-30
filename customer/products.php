@@ -338,21 +338,55 @@ function sortProducts() {
     productCards.forEach(card => productsGrid.appendChild(card));
 }
 
-// Rental functionality - UPDATED (uses global auth modal)
+// Rental functionality
 function openRentalModal(productId) {
     <?php if (!isLoggedIn()): ?>
         showAuthModal();
         return;
     <?php else: ?>
-        // If user is logged in, proceed with rental
+        // Get product details for the modal
+        const productCard = document.querySelector(`.product-card[data-product-id="${productId}"]`);
+        const productName = productCard ? productCard.querySelector('.product-name').textContent : 'Product';
+        const productPrice = productCard ? parseFloat(productCard.getAttribute('data-price')) : 0;
+        const productImage = productCard ? productCard.querySelector('img').src : '';
+        
         document.getElementById('modalProductDetails').innerHTML = `
-            <p>Product ID: ${productId}</p>
-            <p>Rental functionality will be implemented in the next step.</p>
+            <div class="rental-product-details">
+                <div class="product-image">
+                    <img src="${productImage}" alt="${productName}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">
+                </div>
+                <div class="product-info">
+                    <h4>${productName}</h4>
+                    <p class="price">$${productPrice}/day</p>
+                </div>
+            </div>
+            <div class="rental-options">
+                <div class="form-group">
+                    <label for="rentalDays">Rental Period (days):</label>
+                    <select id="rentalDays" class="rental-days-select">
+                        ${Array.from({length: 30}, (_, i) => 
+                            `<option value="${i+1}" ${i+1 === 3 ? 'selected' : ''}>${i+1} day${i+1 > 1 ? 's' : ''}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="price-calculation">
+                    <p>Daily Rate: $${productPrice}</p>
+                    <p>Total: $<span id="rentalTotal">${(productPrice * 3).toFixed(2)}</span></p>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button onclick="closeRentalModal()" class="btn-secondary">Cancel</button>
                 <button onclick="addToCart(${productId})" class="btn-primary">Add to Cart</button>
             </div>
         `;
+        
+        // Add event listener for rental days change
+        document.getElementById('rentalDays').addEventListener('change', function() {
+            const days = parseInt(this.value);
+            const total = productPrice * days;
+            document.getElementById('rentalTotal').textContent = total.toFixed(2);
+        });
+        
         document.getElementById('rentalModal').style.display = 'block';
     <?php endif; ?>
 }
@@ -374,30 +408,21 @@ function closeQuickViewModal() {
 }
 
 function addToCart(productId) {
-    alert(`Product ${productId} added to cart!`);
-    closeRentalModal();
-}
-
-// Close modals when clicking outside
-window.onclick = function(event) {
-    const rentalModal = document.getElementById('rentalModal');
-    const quickViewModal = document.getElementById('quickViewModal');
-    
-    if (event.target === rentalModal) {
-        closeRentalModal();
-    }
-    if (event.target === quickViewModal) {
-        closeQuickViewModal();
-    }
-}
-function addToCart(productId) {
-    // Get product details (in real app, this would be from database)
+    // Get product details from the product card
     const productCard = document.querySelector(`.product-card[data-product-id="${productId}"]`);
+    if (!productCard) {
+        console.error('Product card not found for ID:', productId);
+        return;
+    }
+
     const productName = productCard.querySelector('.product-name').textContent;
     const productPrice = parseFloat(productCard.getAttribute('data-price'));
-    const productImage = productCard.querySelector('img').src;
+    const productImage = productCard.querySelector('img')?.src || '/amwali-closet/assets/images/placeholder.jpg';
     const productSize = productCard.querySelector('.product-size').textContent.replace('Size: ', '');
     const productCategory = productCard.querySelector('.product-category').textContent;
+    
+    // Get rental days from modal
+    const rentalDays = parseInt(document.getElementById('rentalDays')?.value || 3);
     
     const cartItem = {
         id: productId,
@@ -406,7 +431,7 @@ function addToCart(productId) {
         image: productImage,
         size: productSize,
         category: productCategory,
-        rentalDays: 3 // Default rental period
+        rentalDays: rentalDays
     };
     
     // Get existing cart or initialize empty array
@@ -415,7 +440,8 @@ function addToCart(productId) {
     // Check if item already in cart
     const existingItemIndex = cart.findIndex(item => item.id == productId);
     if (existingItemIndex > -1) {
-        cart[existingItemIndex].rentalDays += 3; // Add more days if already in cart
+        // Update if already in cart
+        cart[existingItemIndex] = cartItem;
     } else {
         cart.push(cartItem);
     }
@@ -424,16 +450,44 @@ function addToCart(productId) {
     localStorage.setItem('amwali_cart', JSON.stringify(cart));
     
     // Show success message
-    alert(`${productName} added to cart!`);
+    showToast(`${productName} added to cart for ${rentalDays} days!`, 'success');
     closeRentalModal();
     
     // Update cart count in header
     updateCartCount();
 }
 
+// Toast notification function
+function showToast(message, type = 'success') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#10b981' : '#3b82f6'};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 10000;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        font-weight: 500;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// Update cart count in header
 function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem('amwali_cart') || '[]');
-    const cartCount = cart.reduce((total, item) => total + 1, 0);
+    const cartCount = cart.length;
     
     // Update cart count in navigation
     const cartLinks = document.querySelectorAll('.nav-links a[href*="cart"]');
@@ -442,16 +496,55 @@ function updateCartCount() {
         if (existingCount) {
             existingCount.textContent = cartCount;
         } else if (cartCount > 0) {
-            link.innerHTML += `<span class="cart-count">${cartCount}</span>`;
+            const countSpan = document.createElement('span');
+            countSpan.className = 'cart-count';
+            countSpan.textContent = cartCount;
+            link.appendChild(countSpan);
+        } else {
+            // Remove cart count if it exists and count is 0
+            const existingCount = link.querySelector('.cart-count');
+            if (existingCount) {
+                existingCount.remove();
+            }
         }
     });
 }
 
-// Call this on page load
-document.addEventListener('DOMContentLoaded', updateCartCount);
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const modals = ['rentalModal', 'quickViewModal', 'authModal'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (event.target === modal) {
+            if (modalId === 'rentalModal') closeRentalModal();
+            if (modalId === 'quickViewModal') closeQuickViewModal();
+            if (modalId === 'authModal') closeAuthModal();
+        }
+    });
+}
 
-// Initialize filters
+// Add data-product-id attribute to product cards and initialize
 document.addEventListener('DOMContentLoaded', function() {
+    // Add product IDs to all product cards
+    const productCards = document.querySelectorAll('.product-card');
+    productCards.forEach((card, index) => {
+        // Extract product ID from the rent button onclick attribute
+        const rentBtn = card.querySelector('.rent-btn');
+        if (rentBtn) {
+            const onclickAttr = rentBtn.getAttribute('onclick');
+            const match = onclickAttr.match(/openRentalModal\((\d+)\)/);
+            if (match) {
+                card.setAttribute('data-product-id', match[1]);
+            }
+        }
+    });
+    
+    // Initialize filters
     document.getElementById('searchInput').addEventListener('input', filterProducts);
+    
+    // Initialize cart count
+    updateCartCount();
+    
+    console.log('Products page initialized');
 });
 </script>
